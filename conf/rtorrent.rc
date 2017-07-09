@@ -6,9 +6,10 @@
 ### Set Directories
 method.insert = cfg.basedir,     private|const|string, (cat,"<user home>/rtorrent/")
 method.insert = cfg.watch,       private|const|string, (cat,(cfg.basedir),"watch/")
+method.insert = cfg.completed,   private|const|string, (cat,(cfg.basedir),"completed/")
 
 method.insert = cfg.logs,       private|const|string, (cat,(cfg.basedir),"log/")
-method.insert = cfg.logfile,    private|const|string, (cat,(c   fg.logs),"rtorrent-",(system.time),".log")
+method.insert = cfg.logfile,    private|const|string, (cat,(cfg.logs),"rtorrent-",(system.time),".log")
 
 session.path.set = (cat,(cfg.basedir),".session")
 directory.default.set = (cat,(cfg.basedir),"download")
@@ -17,7 +18,7 @@ schedule = watch_directory,5,5,((load.start,(cat,(cfg.watch),"*.torrent")))
 
 # Create a symlink in another directory without a suffix.
 # You need to quote the command in this case.
-method.set_key = event.download.finished,link3,"d.create_link=base_filename,(cat,(cfg.basedir),"completed/"),"
+method.set_key = event.download.finished,link3,"d.create_link=base_filename,cfg.completed,"
 
 
 ### BitTorrent

@@ -16,7 +16,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 if [ ! -d /etc/rtinst ]; then
-  git clone https://github.com/arakasi72/rtinst.git /etc/rtinst
+  git clone https://github.com/rabblac/rtinst.git /etc/rtinst
 fi
 
 cd /etc/rtinst
@@ -27,7 +27,7 @@ branch=$(basename "$(git symbolic-ref -q HEAD)")
 if [ -z $branch ]; then
   branch=$(git describe --tags --exact-match)
   if [ ${branch:0:1} = v ]; then
-    latest=$(basename "$(git ls-remote --tags https://github.com/arakasi72/rtinst.git | grep -o 'refs/tags/v.*' | sort -V | tail -1)")
+    latest=$(basename "$(git ls-remote --tags https://github.com/rabblac/rtinst.git | grep -o 'refs/tags/v.*' | sort -V | tail -1)")
     if [ $branch = $latest ]; then
       echo "Already using the latest release: $branch"
       exit
@@ -36,7 +36,7 @@ if [ -z $branch ]; then
     echo "rtinst updating from $branch to $latest"
     cd
     rm -fr /etc/rtinst
-    git clone -q https://github.com/arakasi72/rtinst.git /etc/rtinst
+    git clone -q https://github.com/rabblac/rtinst.git /etc/rtinst
     cd /etc/rtinst
     git checkout -q $latest
     branch=$(git describe --tags --exact-match)
@@ -52,7 +52,7 @@ if [ -z $branch ]; then
   fi
 fi
 
-if [ $(git ls-remote --heads https://github.com/arakasi72/rtinst.git $branch | wc -l) -eq 0 ]; then
+if [ $(git ls-remote --heads https://github.com/rabblac/rtinst.git $branch | wc -l) -eq 0 ]; then
   echo "$branch no longer appears to exist"
   echo "run rtsetup to reset branch"
 else

@@ -54,7 +54,7 @@ skip_rt=1
 sshport=''
 rudevflag=0
 passfile='/etc/nginx/.htpasswd'
-package_list="sudo nano autoconf build-essential ca-certificates comerr-dev curl cfv dtach htop irssi libcloog-ppl-dev libcppunit-dev libcurl3 libncurses5-dev libterm-readline-gnu-perl libsigc++-2.0-dev libperl-dev libtool libxml2-dev ncurses-base ncurses-term ntp patch pkg-config $phpver-fpm $phpver $phpver-cli $phpver-dev $phpver-curl $geoipver $phpver-mcrypt $phpver-xmlrpc python-scgi screen subversion texinfo unzip zlib1g-dev libcurl4-openssl-dev mediainfo python-software-properties software-properties-common aptitude $phpver-json nginx-full apache2-utils git libarchive-zip-perl libnet-ssleay-perl libhtml-parser-perl libxml-libxml-perl libjson-perl libjson-xs-perl libxml-libxslt-perl libjson-rpc-perl libarchive-zip-perl"
+package_list="sudo nano autoconf build-essential ca-certificates comerr-dev curl cfv dtach htop irssi libcloog-ppl-dev libcppunit-dev libcurl3 libncurses5-dev libterm-readline-gnu-perl libsigc++-2.0-dev libperl-dev libtool libxml2-dev ncurses-base ncurses-term ntp patch pkg-config $phpver-fpm $phpver $phpver-cli $phpver-dev $phpver-curl $geoipver $phpver-mcrypt $phpver-xmlrpc python-scgi screen subversion texinfo unzip zlib1g-dev libcurl4-openssl-dev mediainfo python-software-properties software-properties-common aptitude $phpver-json nginx-extras apache2-utils git libarchive-zip-perl libnet-ssleay-perl libhtml-parser-perl libxml-libxml-perl libjson-perl libjson-xs-perl libxml-libxslt-perl libjson-rpc-perl libarchive-zip-perl"
 Install_list=""
 unixpass=""
 passflag=0
@@ -220,7 +220,7 @@ else
  echo $fullrel
  echo "Only Ubuntu release 14 and later, and Debian and Raspbian release 8 and later, are supported"
  echo "Your system does not appear to be supported"
- echo "Check https://github.com/arakasi72/rtinst/wiki/Installing-on-Older-OS to see if it is supported by an earlier rtinst release"
+ echo "Check https://github.com/rabblac/rtinst/wiki/Installing-on-Older-OS to see if it is supported by an earlier rtinst release"
  exit
 fi
 
@@ -497,7 +497,7 @@ oldsshport=$(grep -P '^[#\s]*Port ' /etc/ssh/sshd_config | sed 's/[^0-9]*//g')
 if [ "$portdefault" = "0" ]; then
   sshport=22
 elif [ "$oldsshport" = "22" ] && [ "$portdefault" = "1" ]; then
-  sshport=$(random 21000 29000)
+  sshport=22
 else
   sshport=$oldsshport
 fi
@@ -668,6 +668,7 @@ cd $home
 mkdir -p rtorrent/.session
 mkdir -p rtorrent/download
 mkdir -p rtorrent/watch
+mkdir -p rtorrent/completed
 
 cp -f /etc/rtinst/conf/rtorrent.rc $home/.rtorrent.rc
 sed -i "s|<user home>|${home}|g" $home/.rtorrent.rc

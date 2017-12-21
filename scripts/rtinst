@@ -42,6 +42,11 @@ else
   geoipver=php5-geoip
 fi
 
+if [ $(lsb_release -sr) = "17.10" ]; then
+  phpver=php7.1
+  phploc=/etc/php/7.1
+fi
+
 export serverip=$(ip route get 8.8.8.8 | awk 'NR==1 {print $NF}')
 export logfile="/dev/null"
 webpass=''
@@ -52,13 +57,16 @@ portdefault=1
 
 skip_rt=1
 sshport=''
-rudevflag=0
+rudevflag=1
+rurelease=master
 passfile='/etc/nginx/.htpasswd'
 package_list="sudo nano autoconf build-essential ca-certificates comerr-dev curl cfv dtach htop irssi libcloog-ppl-dev libcppunit-dev libcurl3 libncurses5-dev libterm-readline-gnu-perl libsigc++-2.0-dev libperl-dev libtool libxml2-dev ncurses-base ncurses-term ntp patch pkg-config $phpver-fpm $phpver $phpver-cli $phpver-dev $phpver-curl $geoipver $phpver-mcrypt $phpver-xmlrpc python-scgi screen subversion texinfo unzip zlib1g-dev libcurl4-openssl-dev mediainfo python-software-properties software-properties-common aptitude $phpver-json nginx-extras apache2-utils git libarchive-zip-perl libnet-ssleay-perl libhtml-parser-perl libxml-libxml-perl libjson-perl libjson-xs-perl libxml-libxslt-perl libjson-rpc-perl libarchive-zip-perl"
 Install_list=""
 unixpass=""
 passflag=0
 forceyes=1
+selfsign=1
+rut_add_users=1
 
 ###############################
 ### FUNCTIONS ###
@@ -225,7 +233,7 @@ else
 fi
 
 # get options
-OPTS=$(getopt -n "$0" -o dltryu:p:w: --long "dload,log,ssh-default,rutorrent-stable,force-yes,user:,password:,webpass:" -- "$@")
+OPTS=$(getopt -n "$0" -o dltrmysu:p:w: --long "dload,log,ssh-default,rutorrent-stable,rutorrent-master,force-yes,self-signed,user:,password:,webpass:" -- "$@")
 
 eval set -- "$OPTS"
 
@@ -235,7 +243,9 @@ while true; do
     -l | --log ) logfile="$HOME/rtinst.log"; shift ;;
     -t | --ssh-default ) portdefault=0; shift;;
     -r | --rutorrent-stable ) rudevflag=1; shift;;
+    -m | --rutorrent-master ) rudevflag=0; shift;;
     -y | --force-yes ) forceyes=0; shift;;
+    -s | --self-signed ) selfsign=0; shift;;
     -u | --user ) user="$2"; shift; shift;;
     -p | --password ) unixpass="$2"; shift; shift;;
     -w | --webpass ) webpass="$2"; shift; shift;;
@@ -253,6 +263,8 @@ fi
 # check required web repos are accessible
 os_repo=0
 major_repo=0
+
+sed  -i "s/http:\/\/ftp\.debian\.org\/debian\s/http:\/\/ftp\.debian\.org\/debian\/ /g" /etc/apt/sources.list
 
 echo
 echo "Checking the web sites we will need are accessible"
@@ -320,7 +332,7 @@ fi
 
 # set and prepare user
 if [ -z "$user" ]; then
-  if [ -z "$SUDO_USER" ]; then
+  if [ "$SUDO_USER" = "root" ] || [ -z "$SUDO_USER" ]; then
     echo "Enter the name of the user to install to"
     echo "This will be your primary user"
     echo "It can be an existing user or a new user"
@@ -385,6 +397,33 @@ if [ -z "$webpass" ]  && [ $passflag != 2 ]; then
   fi
 fi
 
+rut_user_list=$(ls /var/www/rutorrent/conf/users 2>/dev/null | sed "s/$user//g")
+
+for rut_user in $rut_user_list; do
+  if ! id -u $rut_user >/dev/null 2>&1; then
+    rut_user_list=$(echo $rut_user_list | sed "s/$rut_user//g")
+  fi
+done
+
+if [ -z "$rut_user_list" ]; then
+  echo "No additional users to add"
+else
+  echo "These users have been detected:"
+  for rut_user in $rut_user_list; do
+    echo $rut_user
+  done
+
+  if [ $forceyes = 0 ]; then
+    echo "Users will be added"
+    rut_add_users=0
+  else
+    echo -n "Add them to rutorrent y/n ? "
+    if ask_user; then
+      rut_add_users=0
+    fi
+  fi
+fi
+
 #Interaction ended message
 echo
 echo "No more user input required, you can complete unattended"
@@ -420,6 +459,10 @@ for package_name in $package_list
 test -z "$install_list" || apt-get -qq install $install_list >> $logfile 2>&1
 if ! [ $? = 0 ]; then
   echo "Problem installing packages. Check log and rerun once it is resolved" && exit
+fi
+
+if [[ $phpver =~ php7.[0-9] ]]; then
+  apt-get -qq install $phpver-mbstring >> $logfile 2>&1
 fi
 
 #install unrar package
@@ -592,7 +635,11 @@ fi
 echo "Installing nginx" | tee -a $logfile
 
 if [ $passflag != 2 ]; then
-  htpasswd -c -b $passfile $user $webpass >> $logfile 2>&1
+  if [ -f $passfile ]; then
+    htpasswd -b $passfile $user $webpass >> $logfile 2>&1
+  else
+    htpasswd -c -b $passfile $user $webpass >> $logfile 2>&1
+  fi
 fi
 
 chown www-data:www-data $passfile
@@ -627,6 +674,8 @@ echo "          fastcgi_split_path_info ^(.+\.php)(/.+)$;" >> /etc/nginx/conf.d/
 
 if [ "$phpver" = "php7.0" ]; then
   echo "          fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;" >> /etc/nginx/conf.d/php
+elif [ "$phpver" = "php7.1" ]; then
+  echo "          fastcgi_pass unix:/var/run/php/php7.1-fpm.sock;" >> /etc/nginx/conf.d/php
 else
   echo "          fastcgi_pass unix:/var/run/php5-fpm.sock;" >> /etc/nginx/conf.d/php
 fi
@@ -687,19 +736,15 @@ if [ -d "/var/www/rutorrent" ]; then
   rm -r /var/www/rutorrent
 fi
 
- if [ $rudevflag = 1 ]; then
-   echo "Installing Rutorrent (stable)" | tee -a $logfile
-   wget -q https://github.com/Novik/ruTorrent/archive/v3.8.tar.gz | tee -a $logfile
-   tar -xzf v3.8.tar.gz
-   mv -f ruTorrent-3.8 rutorrent
-   rm v3.8.tar.gz
- else
-   echo "Installing Rutorrent (latest build)" | tee -a $logfile
-   wget -q https://github.com/Novik/ruTorrent/archive/master.tar.gz | tee -a $logfile
-   tar -xzf master.tar.gz
-   mv -f ruTorrent-master rutorrent
-   rm master.tar.gz
- fi
+if [ $rudevflag = 1 ]; then
+   rurelease=$(git ls-remote -t https://github.com/Novik/ruTorrent v\* | cut -d/ -f3 | sort -V | tail -1)
+fi
+
+echo "Installing Rutorrent ($rurelease)" | tee -a $logfile
+wget -q https://github.com/Novik/ruTorrent/archive/$rurelease.tar.gz | tee -a $logfile
+tar -xzf $rurelease.tar.gz
+mv $(tar -tzf $rurelease.tar.gz | head -1) rutorrent
+rm $rurelease.tar.gz
 
 echo "Configuring Rutorrent" | tee -a $logfile
 rm rutorrent/conf/config.php
@@ -740,7 +785,6 @@ unzip -qq -o autodl-irssi.zip | tee -a $logfile
 rm autodl-irssi.zip
 cp autodl-irssi.pl autorun/
 mkdir -p $home/.autodl
-touch $home/.autodl/autodl.cfg && touch $home/.autodl/autodl2.cfg
 
 cd /var/www/rutorrent/plugins
 git clone -q https://github.com/autodl-community/autodl-rutorrent.git autodl-irssi | tee -a $home/rtinst.info
@@ -757,9 +801,23 @@ echo >> /var/www/rutorrent/conf/users/$user/plugins/autodl-irssi/conf.php
 echo "?>" >> /var/www/rutorrent/conf/users/$user/plugins/autodl-irssi/conf.php
 
 cd $home/.autodl
-echo "[options]" > autodl2.cfg
-echo "gui-server-port = $adlport" >> autodl2.cfg
-echo "gui-server-password = $adlpass" >> autodl2.cfg
+rm -f autodl2.cfg
+
+if [ -f "autodl.cfg" ]; then
+  if (grep -sq gui-server-port autodl.cfg) && (grep -sq gui-server-password autodl.cfg); then
+    sed -i "/gui-server-port/ c\gui-server-port = $adlport" autodl.cfg
+    sed -i "/gui-server-password/ c\gui-server-password = $adlpass" autodl.cfg
+  else
+    sed -i '/gui-server-port/ d' autodl.cfg
+    sed -i '/gui-server-password/ d' autodl.cfg
+    echo >> autodl.cfg
+    sed -i "1s/^/[options]\ngui-server-port = $adlport\ngui-server-password = $adlpass\n/" autodl.cfg
+  fi
+else
+  echo "[options]" > autodl.cfg
+  echo "gui-server-port = $adlport" >> autodl.cfg
+  echo "gui-server-password = $adlpass" >> autodl.cfg
+fi
 
 ###############################
 ### FINAL TASKS ###
@@ -794,6 +852,13 @@ if [ -z  "$(crontab -u $user -l | grep "\*/10 \* \* \* \* /usr/local/bin/rtcheck
     (crontab -u $user -l; echo "$cronline2" ) | crontab -u $user - >> $logfile 2>&1
 fi
 
+# add aditional users if any
+if [ $rut_add_users = 0 ]; then
+  for rut_user in $rut_user_list; do
+    echo "Adding $rut_user"
+    rtadduser -n -u $rut_user >> $logfile 2>&1
+  done
+fi
 
 ###############################
 ### WRITE RTINST.INFO ###

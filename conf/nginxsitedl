@@ -1,5 +1,5 @@
 location ~ ^/download/(.+?)(/.*)?$ {
-    alias /home/$1$2;
+    alias /home/$1/rtorrent/download$2;
     charset UTF-8;
     source_charset UTF-8;
     set $user $1;
